@@ -48,7 +48,9 @@
 /*
  * Initials     Name
  * ---------------------------
- * MaCe         Mariano Cerdeiro
+ * GePr		Germán Pressel
+ * ChHa		Christian Halter
+ * AlGr		Alejandro Greggio
  */
 
 /*
