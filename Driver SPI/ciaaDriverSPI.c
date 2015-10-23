@@ -127,20 +127,21 @@ static void ciaaDriverSPI_txConfirmation(ciaaDevices_deviceType const * const de
 
 static void ciaaDriverSPI_hwInit(void)
 {
-   /* UART0 (RS485/Profibus) */
+   /* SPI initialization */
    Chip_SPI_Init(LPC_SPI);
-   Chip_SPI_SetBitRate(LPC_SPI, 115200);
+   Chip_SPI_SetBitRate(LPC_SPI, 1000000);
 
-   Chip_UART_SetupFIFOS(LPC_SPI, UART_FCR_FIFO_EN | UART_FCR_TRG_LEV0);
+   //Chip_UART_SetupFIFOS(LPC_SPI, UART_FCR_FIFO_EN | UART_FCR_TRG_LEV0);
 
-   Chip_UART_TXEnable(LPC_SPI);
+   //Chip_UART_TXEnable(LPC_SPI);
 
-   Chip_SCU_PinMux(9, 5, MD_PDN, FUNC7);              /* P9_5: UART0_TXD */
-   Chip_SCU_PinMux(9, 6, MD_PLN|MD_EZI|MD_ZI, FUNC7); /* P9_6: UART0_RXD */
+   Chip_SCU_PinMux(3, 3, MD_PDN, FUNC1);              /* P3_3: SPI_SCK */
+   Chip_SCU_PinMux(3, 6, MD_PLN|MD_EZI|MD_ZI, FUNC1); /* P3_6: SPI_MISO */
+   Chip_SCU_PinMux(3, 7, MD_PLN|MD_EZI|MD_ZI, FUNC1); /* P3_7: SPI_MOSI */
 
-   Chip_UART_SetRS485Flags(LPC_SPI, UART_RS485CTRL_DCTRL_EN | UART_RS485CTRL_OINV_1);
+   //Chip_UART_SetRS485Flags(LPC_SPI, UART_RS485CTRL_DCTRL_EN | UART_RS485CTRL_OINV_1);
 
-   Chip_SCU_PinMux(6, 2, MD_PDN, FUNC2);              /* P6_2: UART0_DIR */
+   //Chip_SCU_PinMux(6, 2, MD_PDN, FUNC2);              /* P6_2: UART0_DIR */
 }
 
 /*==================[external functions definition]==========================*/

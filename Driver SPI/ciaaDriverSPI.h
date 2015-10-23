@@ -48,13 +48,7 @@
 /*
  * Initials     Name
  * ---------------------------
-<<<<<<< HEAD
- * GePr		Germán Pressel
- * ChHa		Christian Halter
- * AlGr		Alejandro Greggio
-=======
- * Ge Pr	German Pressel 
->>>>>>> c2e108ffc2dccb055897174068fd30b32a203c0b
+ * MaCe         Mariano Cerdeiro
  */
 
 /*
