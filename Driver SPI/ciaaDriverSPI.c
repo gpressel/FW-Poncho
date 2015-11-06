@@ -128,20 +128,18 @@ static void ciaaDriverSPI_txConfirmation(ciaaDevices_deviceType const * const de
 static void ciaaDriverSPI_hwInit(void)
 {
    /* SPI initialization */
-   Chip_SPI_Init(LPC_SPI);
-   Chip_SPI_SetBitRate(LPC_SPI, 1000000);
+   Chip_SSP_Init(LPC_SSP1);			/*El SPI se implementa por los pines de SSP1*/
+   Chip_SSP_SetBitRate(LPC_SSP1, 1000000);
 
-   //Chip_UART_SetupFIFOS(LPC_SPI, UART_FCR_FIFO_EN | UART_FCR_TRG_LEV0);
 
-   //Chip_UART_TXEnable(LPC_SPI);
 
-   Chip_SCU_PinMux(3, 3, MD_PDN, FUNC1);              /* P3_3: SPI_SCK */
-   Chip_SCU_PinMux(3, 6, MD_PLN|MD_EZI|MD_ZI, FUNC1); /* P3_6: SPI_MISO */
-   Chip_SCU_PinMux(3, 7, MD_PLN|MD_EZI|MD_ZI, FUNC1); /* P3_7: SPI_MOSI */
+   Chip_SCU_PinMux(0xF, 4, MD_PLN, FUNC0);   /* PF_4: SSP1_SCK */
+   Chip_SCU_PinMux(1, 3, MD_PLN, FUNC5); 	 /* P1_3: SSP1_MISO */
+   Chip_SCU_PinMux(1, 4, MD_PLN, FUNC5); 	 /* P1_4: SSP1_MOSI */
 
-   //Chip_UART_SetRS485Flags(LPC_SPI, UART_RS485CTRL_DCTRL_EN | UART_RS485CTRL_OINV_1);
+   Chip_SSP_Int_Disable(LPC_SSP1);
+   Chip_SSP_Enable(LPC_SSP1);
 
-   //Chip_SCU_PinMux(6, 2, MD_PDN, FUNC2);              /* P6_2: UART0_DIR */
 }
 
 /*==================[external functions definition]==========================*/
