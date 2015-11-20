@@ -1,6 +1,10 @@
-/* Copyright 2014, Pablo Ridolfi (UTN-FRBA)
- * Copyright 2014, Juan Cecconi
- * All rights reserved.
+/* Copyright 2015, Dominguez Shocron, Marcos (UNER)
+ * Copyright 2015, Greggio, Alejandro (UNER)
+ * Copyright 2015, Halter, Christian (UNER)
+ * Copyright 2015, Pressel Coretto, Germán (UNER)
+ * Copyright 2015, Sosa, Mariela (UNER)
+ *
+ * All rights reserved. 
  *
  * This file is part of CIAA Firmware.
  *
@@ -32,9 +36,9 @@
  *
  */
 
-/** \brief CIAA UART Driver for LPC4337
+/** \brief CIAA SPI Driver for LPC4337
  **
- ** Implements the UART Driver for LPC4337
+ ** Implements the SPI Driver for LPC4337
  **
  **/
 
@@ -42,20 +46,23 @@
  ** @{ */
 /** \addtogroup Drivers CIAA Drivers
  ** @{ */
-/** \addtogroup UART UART Drivers
+/** \addtogroup SPI SPI Drivers
  ** @{ */
 
 /*
  * Initials     Name
  * ---------------------------
- * PaRi         Pablo Ridolfi
- * JuCe         Juan Cecconi
+ * DoMa         Dominguez Shocron, Marcos
+ * GrAl         Greggio, Alejandro
+ * HaCh         Halter,Christian
+ * PrGe		    Pressel Coretto, German
+ * SoMa			Sosa, Mariela
  */
 
 /*
  * modification history (new versions first)
  * -----------------------------------------------------------
- * 20140731 v0.0.1   PR first functional version
+ * 20151120 v0.0.1    initial version
  */
 
 /*==================[inclusions]=============================================*/
@@ -72,10 +79,10 @@ typedef struct  {
    uint8_t countOfDevices;
 } ciaaDriverConstType;
 
-#define SPI_RX_FIFO_SIZE       (16)
+#define SPI_FIFO_SIZE       (16)
 
 typedef struct {
-   uint8_t hwbuf[SPI_RX_FIFO_SIZE];
+   uint8_t hwbuf[SPI_FIFO_SIZE];
    uint8_t rxcnt;
 } ciaaDriverSPIControl;
 
@@ -113,25 +120,22 @@ static ciaaDriverConstType const ciaaDriverSPIConst = {
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
-/*static void ciaaDriverSPI_rxIndication(ciaaDevices_deviceType const * const device, uint32_t const nbyte)
+static void ciaaDriverSPI_rxIndication(ciaaDevices_deviceType const * const device, uint32_t const nbyte)
 {
-    receive the data and forward to upper layer
+    /*receive the data and forward to upper layer*/
    ciaaSerialDevices_rxIndication(device->upLayer, nbyte);
 }
 
 static void ciaaDriverSPI_txConfirmation(ciaaDevices_deviceType const * const device)
 {
-    receive the data and forward to upper layer
+    /*receive the data and forward to upper layer*/
    ciaaSerialDevices_txConfirmation(device->upLayer, 1 );
-}*/
+}
 
 static void ciaaDriverSPI_hwInit(void)
 {
    /* SPI initialization */
    Chip_SSP_Init(LPC_SSP1);			/*El SPI se implementa por los pines de SSP1*/
-   Chip_SSP_SetBitRate(LPC_SSP1, 1000000);
-
-
 
    Chip_SCU_PinMux(0xF, 4, MD_PLN, FUNC0);   /* PF_4: SSP1_SCK */
    Chip_SCU_PinMux(1, 3, MD_PLN, FUNC5); 	 /* P1_3: SSP1_MISO */
@@ -139,33 +143,31 @@ static void ciaaDriverSPI_hwInit(void)
 
    Chip_SSP_Int_Disable(LPC_SSP1);
    Chip_SSP_Enable(LPC_SSP1);
-   Chip_SSP_SetFormat(LPC_SSP1, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);
+   /*The following line replace Chip_SPP_SetFormat from spp_18xx_43xx.h*/
+   LPC_SSP1->CR0 = (LPC_SSP1->CR0 & ~0xFF) | SSP_BITS_8 | SSP_FRAMEFORMAT_SPI | SSP_CLOCK_CPHA0_CPOL0;
+   Chip_SSP_SetBitRate(LPC_SSP1, 1000000);
 }
 
 /*==================[external functions definition]==========================*/
 extern ciaaDevices_deviceType * ciaaDriverSPI_open(char const * path, ciaaDevices_deviceType * device, uint8_t const oflag)
 {
-   /* Restart FIFOS: set Enable, Reset content, set trigger level */
-   //Chip_UART_SetupFIFOS((LPC_USART_T *)device->loLayer, UART_FCR_FIFO_EN | UART_FCR_TX_RS | UART_FCR_RX_RS | UART_FCR_TRG_LEV0);
+   /* Restart FIFOS */
    Chip_SSP_Int_FlushData((LPC_SSP_T *)device->loLayer);
-   /* dummy read */
-   //Chip_UART_ReadByte((LPC_USART_T *)device->loLayer);
-
-   /* enable rx interrupt */
-   //Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_RBRINT);
+   
+   /* enable interrupt */
    Chip_SSP_Int_Enable((LPC_SSP_T *)device->loLayer);
 
    return device;
 }
 
-extern int32_t ciaaDriverUart_close(ciaaDevices_deviceType const * const device)
+extern int32_t ciaaDriverSPI_close(ciaaDevices_deviceType const * const device)
 {
-   /* disable tx and rx interrupt */
+   /* disable interrupt */
    Chip_SSP_Int_Disable((LPC_SSP_T *)device->loLayer);
    return 0;
 }
 
-extern int32_t ciaaDriverUart_ioctl(ciaaDevices_deviceType const * const device, int32_t const request, void * param)
+extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, int32_t const request, void * param)
 {
    int32_t ret = -1;
 
@@ -174,22 +176,22 @@ extern int32_t ciaaDriverUart_ioctl(ciaaDevices_deviceType const * const device,
       switch(request)
       {
          case ciaaPOSIX_IOCTL_STARTTX:
-            /* disable THRE irq (TX) */
-            Chip_UART_IntDisable((LPC_USART_T *)device->loLayer, UART_IER_THREINT);
+            /* disable IRQ (TX) */
+            Chip_SSP_Int_Disable((LPC_SSP_T *)device->loLayer);
             /* this one calls write */
-            ciaaDriverUart_txConfirmation(device);
-            /* enable THRE irq (TX) */
-            Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_THREINT);
+            ciaaDriverSPI_txConfirmation(device);
+            /* enable IRQ (TX) */
+            Chip_SSP_Int_Enable((LPC_SSP_T *)device->loLayer);
             ret = 0;
             break;
 
          case ciaaPOSIX_IOCTL_SET_BAUDRATE:
-            ret = Chip_UART_SetBaud((LPC_USART_T *)device->loLayer,  (int32_t)param);
+            Chip_SSP_SetBitRate((LPC_SSP_T *)device->loLayer,  (int32_t)param);
+            ret = 0;
             break;
 
-         case ciaaPOSIX_IOCTL_SET_FIFO_TRIGGER_LEVEL:
-            Chip_UART_SetupFIFOS((LPC_USART_T *)device->loLayer,  UART_FCR_FIFO_EN | UART_FCR_TX_RS | UART_FCR_RX_RS | (int32_t)param);
-            break;
+         case ciaaPOSIX_IOCTL_SET:
+        	 //param=SSP_BITS_4|SSP_CLOCK_CPHA0_CPOL0;
 
          case ciaaPOSIX_IOCTL_SET_ENABLE_TX_INTERRUPT:
             if((bool)(intptr_t)param == false)
