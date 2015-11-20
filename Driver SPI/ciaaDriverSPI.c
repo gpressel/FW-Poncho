@@ -88,7 +88,7 @@ typedef struct {
 /** \brief Buffers */
 ciaaDriverSPIControl SPIControl;
 
-/** \brief Device for UART 0 */
+/** \brief Device for SPI 0 */
 static ciaaDevices_deviceType ciaaDriverSPI_device = {
    "spi/0",               /** <= driver name */
    ciaaDriverSPI_open,    /** <= open function */
@@ -105,7 +105,7 @@ static ciaaDevices_deviceType ciaaDriverSPI_device = {
 
 static ciaaDevices_deviceType * const ciaaSPIDevices = &ciaaDriverSPI_device;
 
-static ciaaDriverConstType const ciaaDriverUartConst = {
+static ciaaDriverConstType const ciaaDriverSPIConst = {
    ciaaSPIDevices,
    1
 };
@@ -113,17 +113,17 @@ static ciaaDriverConstType const ciaaDriverUartConst = {
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
-static void ciaaDriverSPI_rxIndication(ciaaDevices_deviceType const * const device, uint32_t const nbyte)
+/*static void ciaaDriverSPI_rxIndication(ciaaDevices_deviceType const * const device, uint32_t const nbyte)
 {
-   /* receive the data and forward to upper layer */
+    receive the data and forward to upper layer
    ciaaSerialDevices_rxIndication(device->upLayer, nbyte);
 }
 
 static void ciaaDriverSPI_txConfirmation(ciaaDevices_deviceType const * const device)
 {
-   /* receive the data and forward to upper layer */
+    receive the data and forward to upper layer
    ciaaSerialDevices_txConfirmation(device->upLayer, 1 );
-}
+}*/
 
 static void ciaaDriverSPI_hwInit(void)
 {
@@ -139,18 +139,21 @@ static void ciaaDriverSPI_hwInit(void)
 
    Chip_SSP_Int_Disable(LPC_SSP1);
    Chip_SSP_Enable(LPC_SSP1);
-
+   Chip_SSP_SetFormat(LPC_SSP1, SSP_BITS_8, SSP_FRAMEFORMAT_SPI, SSP_CLOCK_CPHA0_CPOL0);
 }
 
 /*==================[external functions definition]==========================*/
-extern ciaaDevices_deviceType * ciaaDriverUart_open(char const * path, ciaaDevices_deviceType * device, uint8_t const oflag)
+extern ciaaDevices_deviceType * ciaaDriverSPI_open(char const * path, ciaaDevices_deviceType * device, uint8_t const oflag)
 {
    /* Restart FIFOS: set Enable, Reset content, set trigger level */
-   Chip_UART_SetupFIFOS((LPC_USART_T *)device->loLayer, UART_FCR_FIFO_EN | UART_FCR_TX_RS | UART_FCR_RX_RS | UART_FCR_TRG_LEV0);
+   //Chip_UART_SetupFIFOS((LPC_USART_T *)device->loLayer, UART_FCR_FIFO_EN | UART_FCR_TX_RS | UART_FCR_RX_RS | UART_FCR_TRG_LEV0);
+   Chip_SSP_Int_FlushData((LPC_SSP_T *)device->loLayer);
    /* dummy read */
-   Chip_UART_ReadByte((LPC_USART_T *)device->loLayer);
+   //Chip_UART_ReadByte((LPC_USART_T *)device->loLayer);
+
    /* enable rx interrupt */
-   Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_RBRINT);
+   //Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_RBRINT);
+   Chip_SSP_Int_Enable((LPC_SSP_T *)device->loLayer);
 
    return device;
 }
@@ -158,7 +161,7 @@ extern ciaaDevices_deviceType * ciaaDriverUart_open(char const * path, ciaaDevic
 extern int32_t ciaaDriverUart_close(ciaaDevices_deviceType const * const device)
 {
    /* disable tx and rx interrupt */
-   Chip_UART_IntDisable((LPC_USART_T *)device->loLayer, UART_IER_THREINT | UART_IER_RBRINT);
+   Chip_SSP_Int_Disable((LPC_SSP_T *)device->loLayer);
    return 0;
 }
 
@@ -166,9 +169,7 @@ extern int32_t ciaaDriverUart_ioctl(ciaaDevices_deviceType const * const device,
 {
    int32_t ret = -1;
 
-   if((device == ciaaDriverUartConst.devices[0]) ||
-      (device == ciaaDriverUartConst.devices[1]) ||
-      (device == ciaaDriverUartConst.devices[2]) )
+   if(device == ciaaDriverSPIConst.devices)
    {
       switch(request)
       {
@@ -287,7 +288,7 @@ void ciaaDriverUart_init(void)
    uint8_t loopi;
 
    /* init hardware */
-   ciaaDriverUart_hwInit();
+   ciaaDriverSPI_hwInit();
 
    /* add uart driver to the list of devices */
    for(loopi = 0; loopi < ciaaDriverUartConst.countOfDevices; loopi++) {
@@ -324,59 +325,6 @@ ISR(UART0_IRQHandler)
    }
 }
 
-ISR(UART2_IRQHandler)
-{
-   uint8_t status = Chip_UART_ReadLineStatus(LPC_USART2);
-
-   if(status & UART_LSR_RDR)
-   {
-      do
-      {
-         uartControl[1].hwbuf[uartControl[1].rxcnt] = Chip_UART_ReadByte(LPC_USART2);
-         uartControl[1].rxcnt++;
-      }while((Chip_UART_ReadLineStatus(LPC_USART2) & UART_LSR_RDR) &&
-             (uartControl[1].rxcnt < UART_RX_FIFO_SIZE));
-
-      ciaaDriverUart_rxIndication(&ciaaDriverUart_device1, uartControl[1].rxcnt);
-   }
-   if((status & UART_LSR_THRE) && (Chip_UART_GetIntsEnabled(LPC_USART2) & UART_IER_THREINT))
-   {
-      /* tx confirmation, 1 byte sent */
-      ciaaDriverUart_txConfirmation(&ciaaDriverUart_device1);
-
-      if(Chip_UART_ReadLineStatus(LPC_USART2) & UART_LSR_THRE)
-      {  /* There is not more bytes to send, disable THRE irq */
-         Chip_UART_IntDisable(LPC_USART2, UART_IER_THREINT);
-      }
-   }
-}
-
-ISR(UART3_IRQHandler)
-{
-   uint8_t status = Chip_UART_ReadLineStatus(LPC_USART3);
-
-   if(status & UART_LSR_RDR)
-   {
-      do
-      {
-         uartControl[2].hwbuf[uartControl[2].rxcnt] = Chip_UART_ReadByte(LPC_USART3);
-         uartControl[2].rxcnt++;
-      }while((Chip_UART_ReadLineStatus(LPC_USART3) & UART_LSR_RDR) &&
-             (uartControl[2].rxcnt < UART_RX_FIFO_SIZE));
-
-      ciaaDriverUart_rxIndication(&ciaaDriverUart_device2, uartControl[2].rxcnt);
-   }
-   if((status & UART_LSR_THRE) && (Chip_UART_GetIntsEnabled(LPC_USART3) & UART_IER_THREINT))
-   {
-      /* tx confirmation, 1 byte sent */
-      ciaaDriverUart_txConfirmation(&ciaaDriverUart_device2);
-
-      if(Chip_UART_ReadLineStatus(LPC_USART3) & UART_LSR_THRE)
-      {  /* There is not more bytes to send, disable THRE irq */
-         Chip_UART_IntDisable(LPC_USART3, UART_IER_THREINT);
-      }
-   }
-}
 
 /** @} doxygen end group definition */
 /** @} doxygen end group definition */
