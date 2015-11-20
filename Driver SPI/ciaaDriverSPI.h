@@ -1,4 +1,9 @@
-/* Copyright 2014, Mariano Cerdeiro
+/* Copyright 2014, Dominguez Shocron, Marcos
+ * Copyright 2014, Greggio, Alejandro
+ * Copyright 2014, Halter, Christian
+ * Copyright 2014, Pressel Coretto, Germán
+ * Copyright 2014, Sosa, Mariela
+ * All right reserved.
  *
  * This file is part of CIAA Firmware.
  *
@@ -32,9 +37,9 @@
 
 #ifndef _CIAADRIVERSPI_H_
 #define _CIAADRIVERSPI_H_
-/** \brief CIAA Uart driver header file
+/** \brief CIAA SPI driver header file
  **
- ** This files contains the header file of the CIAA UART driver
+ ** This files contains the header file of the CIAA SPI driver
  **
  **/
 
@@ -42,13 +47,17 @@
  ** @{ */
 /** \addtogroup Drivers CIAA Drivers
  ** @{ */
-/** \addtogroup UART UART Drivers
+/** \addtogroup SPI SPI Drivers
  ** @{ */
 
-/*
+ /*
  * Initials     Name
  * ---------------------------
- * MaCe         Mariano Cerdeiro
+ * DoMa         Dominguez Shocron, Marcos
+ * GrAl         Greggio, Alejandro
+ * HaCh         Halter,Christian
+ * PrGe		    Pressel Coretto, Germán
+ * SoMa			Sosa, Mariela
  */
 
 /*
@@ -73,7 +82,7 @@ extern "C" {
 /*==================[external data declaration]==============================*/
 
 /*==================[external functions declaration]=========================*/
-/** \brief open the uart device
+/** \brief open the SPI device
  **
  ** \param[in] path path of the device to be opened
  ** \param[in] device device to be opened
@@ -87,7 +96,7 @@ extern "C" {
 extern ciaaDevices_deviceType * ciaaDriverSPI_open(char const * path,
       ciaaDevices_deviceType * device, uint8_t const oflag);
 
-/** \brief close the uart device
+/** \brief close the SPI device
  **
  **
  ** \param[in] device pointer to device
@@ -95,9 +104,9 @@ extern ciaaDevices_deviceType * ciaaDriverSPI_open(char const * path,
  **/
 extern int32_t ciaaDriverSPI_close(ciaaDevices_deviceType const * const device);
 
-/** \brief controls the uart device
+/** \brief controls the SPI device
  **
- ** Performs special control of a uart device
+ ** Performs special control of a SPI device
  **
  ** \param[in] device pointer to the device
  ** \param[in] request type of the request, depends on the device
@@ -107,9 +116,9 @@ extern int32_t ciaaDriverSPI_close(ciaaDevices_deviceType const * const device);
  **/
 extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, int32_t const request, void * param);
 
-/** \brief read from a uart device
+/** \brief read from a SPI device
  **
- ** Reads nbyte from the uart device device in buf.
+ ** Reads nbyte from the SPI device device in buf.
  **
  ** \param[in]  device  pointer to the device to be read
  ** \param[out] buf     buffer to store the read data
@@ -118,7 +127,7 @@ extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, 
  **/
 extern ssize_t ciaaDriverSPI_read(ciaaDevices_deviceType const * const device, uint8_t * const buffer, size_t const size);
 
-/** \brief writes to a uart device
+/** \brief writes to a SPI device
  **
  ** Writes nbyte to the device device from the buffer buf
  **
@@ -129,9 +138,9 @@ extern ssize_t ciaaDriverSPI_read(ciaaDevices_deviceType const * const device, u
  **/
 extern ssize_t ciaaDriverSPI_write(ciaaDevices_deviceType const * const device, uint8_t const * const buffer, size_t const size);
 
-/** \brief initialize the uart deriver
+/** \brief initialize the SPI deriver
  **
- ** Is called at system startup, the driver shall register all available uart
+ ** Is called at system startup, the driver shall register all available SPI
  ** devices.
  **/
 extern void ciaaDriverSPI_init(void);
@@ -144,5 +153,6 @@ extern void ciaaDriverSPI_init(void);
 /** @} doxygen end group definition */
 /** @} doxygen end group definition */
 /*==================[end of file]============================================*/
-#endif /* #ifndef _CIAADRIVERUART_H_ */
+#endif /* #ifndef _CIAADRIVERSPI_H_ */
+
 
