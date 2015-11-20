@@ -63,7 +63,7 @@
 /*
  * modification history (new versions first)
  * -----------------------------------------------------------
- * 20140420 v0.0.1 MaCe initial version
+ * 20151120 v0.0.1  initial version
  */
 
 /*==================[inclusions]=============================================*/
