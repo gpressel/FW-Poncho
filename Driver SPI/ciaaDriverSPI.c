@@ -1,7 +1,7 @@
 /* Copyright 2015, Dominguez Shocron, Marcos (UNER)
  * Copyright 2015, Greggio, Alejandro (UNER)
  * Copyright 2015, Halter, Christian (UNER)
- * Copyright 2015, Pressel Coretto, Germán (UNER)
+ * Copyright 2015, Pressel Coretto, German (UNER)
  * Copyright 2015, Sosa, Mariela (UNER)
  *
  * All rights reserved. 
@@ -79,7 +79,9 @@ typedef struct  {
    uint8_t countOfDevices;
 } ciaaDriverConstType;
 
-#define SPI_FIFO_SIZE       (16)
+#define SPI_FIFO_SIZE       (8)
+#define MASK_BITS 0xF
+#define MASK_CPHA_CPOL 0xC0
 
 typedef struct {
    uint8_t hwbuf[SPI_FIFO_SIZE];
@@ -117,6 +119,8 @@ static ciaaDriverConstType const ciaaDriverSPIConst = {
    1
 };
 
+
+
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
@@ -144,7 +148,7 @@ static void ciaaDriverSPI_hwInit(void)
    Chip_SSP_Int_Disable(LPC_SSP1);
    Chip_SSP_Enable(LPC_SSP1);
    /*The following line replace Chip_SPP_SetFormat from spp_18xx_43xx.h*/
-   LPC_SSP1->CR0 = (LPC_SSP1->CR0 & ~0xFF) | SSP_BITS_8 | SSP_FRAMEFORMAT_SPI | SSP_CLOCK_CPHA0_CPOL0;
+   Chip_SSP_SetFormat(LPC_SSP1,SSP_BITS_8,SSP_FRAMEFORMAT_SPI,SSP_CLOCK_CPHA0_CPOL0);
    Chip_SSP_SetBitRate(LPC_SSP1, 1000000);
 }
 
@@ -190,32 +194,20 @@ extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, 
             ret = 0;
             break;
 
-         case ciaaPOSIX_IOCTL_SET:
-        	 //param=SSP_BITS_4|SSP_CLOCK_CPHA0_CPOL0;
+         case ciaaPOSIX_IOCTL_SET_CONFIG:
+        	 Chip_SSP_SetFormat((LPC_SSP_T *)device->loLayer, (uint32_t)param & MASK_BITS, SSP_FRAMEFORMAT_SPI, (uint32_t)param & MASK_CPHA_CPOL);
+        	 break;
 
-         case ciaaPOSIX_IOCTL_SET_ENABLE_TX_INTERRUPT:
-            if((bool)(intptr_t)param == false)
+         case ciaaPOSIX_IOCTL_SET_ENABLE_INTERRUPT:
+            if((bool)param == false)
             {
                /* disable THRE irq (TX) */
-               Chip_UART_IntDisable((LPC_USART_T *)device->loLayer, UART_IER_THREINT);
+            	Chip_SSP_Int_Disable((LPC_SSP_T *)device->loLayer);
             }
             else
             {
                /* enable THRE irq (TX) */
-               Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_THREINT);
-            }
-            break;
-
-         case ciaaPOSIX_IOCTL_SET_ENABLE_RX_INTERRUPT:
-            if((bool)(intptr_t)param == false)
-            {
-               /* disable RBR irq (RX) */
-               Chip_UART_IntDisable((LPC_USART_T *)device->loLayer, UART_IER_RBRINT);
-            }
-            else
-            {
-               /* enable RBR irq (RX) */
-               Chip_UART_IntEnable((LPC_USART_T *)device->loLayer, UART_IER_RBRINT);
+            	Chip_SSP_Int_Enable((LPC_SSP_T *)device->loLayer);
             }
             break;
       }
@@ -223,42 +215,40 @@ extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, 
    return ret;
 }
 
-extern ssize_t ciaaDriverUart_read(ciaaDevices_deviceType const * const device, uint8_t* buffer, size_t const size)
+extern ssize_t ciaaDriverSPI_read(ciaaDevices_deviceType const * const device, uint8_t* buffer, size_t const size)
 {
    ssize_t ret = -1;
-   ciaaDriverUartControl * pUartControl;
+   ciaaDriverSPIControl * pSPIControl;
    uint8_t i;
 
    if(size != 0)
    {
-      if((device == ciaaDriverUartConst.devices[0]) ||
-         (device == ciaaDriverUartConst.devices[1]) ||
-         (device == ciaaDriverUartConst.devices[2]) )
+      if(device == ciaaDriverSPIConst.devices)
       {
-         pUartControl = (ciaaDriverUartControl *)device->layer;
+         pSPIControl = (ciaaDriverSPIControl *)device->layer;
 
-         if(size > pUartControl->rxcnt)
+         if(size > pSPIControl->rxcnt)
          {
             /* buffer has enough space */
-            ret = pUartControl->rxcnt;
-            pUartControl->rxcnt = 0;
+            ret = pSPIControl->rxcnt;
+            pSPIControl->rxcnt = 0;
          }
          else
          {
             /* buffer hasn't enough space */
             ret = size;
-            pUartControl->rxcnt -= size;
+            pSPIControl->rxcnt -= size;
          }
          for(i = 0; i < ret; i++)
          {
-            buffer[i] = pUartControl->hwbuf[i];
+            buffer[i] = pSPIControl->hwbuf[i];
          }
-         if(pUartControl->rxcnt != 0)
+         if(pSPIControl->rxcnt != 0)
          {
             /* We removed data from the buffer, it is time to reorder it */
-            for(i = 0; i < pUartControl->rxcnt ; i++)
+            for(i = 0; i < pSPIControl->rxcnt ; i++)
             {
-               pUartControl->hwbuf[i] = pUartControl->hwbuf[i + ret];
+               pSPIControl->hwbuf[i] = pSPIControl->hwbuf[i + ret];
             }
          }
       }
@@ -266,18 +256,17 @@ extern ssize_t ciaaDriverUart_read(ciaaDevices_deviceType const * const device, 
    return ret;
 }
 
-extern ssize_t ciaaDriverUart_write(ciaaDevices_deviceType const * const device, uint8_t const * const buffer, size_t const size)
+extern ssize_t ciaaDriverSPI_write(ciaaDevices_deviceType const * const device, uint8_t const * const buffer, size_t const size)
 {
    ssize_t ret = 0;
 
-   if((device == ciaaDriverUartConst.devices[0]) ||
-      (device == ciaaDriverUartConst.devices[1]) ||
-      (device == ciaaDriverUartConst.devices[2]) )
+   if(device == ciaaDriverSPIConst.devices)
    {
-      while((Chip_UART_ReadLineStatus((LPC_USART_T *)device->loLayer) & UART_LSR_THRE) && (ret < size))
+      while((Chip_SSP_GetStatus((LPC_SSP_T *)device->loLayer), SSP_STAT_TNF) &&
+    		  (ret < size))
       {
          /* send first byte */
-         Chip_UART_SendByte((LPC_USART_T *)device->loLayer, buffer[ret]);
+    	  Chip_SSP_WriteFrames_Blocking((LPC_SSP_T *)device->loLayer, buffer[ret],1);
          /* bytes written */
          ret++;
       }
@@ -293,23 +282,24 @@ void ciaaDriverUart_init(void)
    ciaaDriverSPI_hwInit();
 
    /* add uart driver to the list of devices */
-   for(loopi = 0; loopi < ciaaDriverUartConst.countOfDevices; loopi++) {
+   for(loopi = 0; loopi < ciaaDriverSPIConst.countOfDevices; loopi++) {
       /* add each device */
-      ciaaSerialDevices_addDriver(ciaaDriverUartConst.devices[loopi]);
+      ciaaSerialDevices_addDriver(ciaaDriverSPIConst.devices[loopi]);
    }
 }
 
 /*==================[interrupt handlers]=====================================*/
-ISR(UART0_IRQHandler)
+ISR(SPI0_IRQHandler)
 {
-   uint8_t status = Chip_UART_ReadLineStatus(LPC_USART0);
+   //uint8_t status = Chip_SSP(LPC_USART0);
 
-   if(status & UART_LSR_RDR)
-   {
+   //if(status & UART_LSR_RDR)
+    if(Chip_SSP_GetStatus(LPC_SSP1,SSP_STAT_RNE))
+	{
       do
       {
-         uartControl[0].hwbuf[uartControl[0].rxcnt] = Chip_UART_ReadByte(LPC_USART0);
-         uartControl[0].rxcnt++;
+         SPIControl[0].hwbuf[SPIControl[0].rxcnt] = Chip_SSP_ReadFrames_Blocking(LPC_SSP1);
+         SPIControl[0].rxcnt++;
       }while((Chip_UART_ReadLineStatus(LPC_USART0) & UART_LSR_RDR) &&
              (uartControl[0].rxcnt < UART_RX_FIFO_SIZE));
 

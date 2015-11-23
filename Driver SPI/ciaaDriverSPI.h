@@ -144,26 +144,6 @@ extern ssize_t ciaaDriverSPI_write(ciaaDevices_deviceType const * const device, 
  ** devices.
  **/
 extern void ciaaDriverSPI_init(void);
-/**
- * @brief	Set up the SSP frame format
- * @param	pSSP		: The base of SSP peripheral on the chip
- * @param	bits		: The number of bits transferred in each frame, should be SSP_BITS_4 to SSP_BITS_16
- * @param	frameFormat	: Frame format, should be :
- *							- SSP_FRAMEFORMAT_SPI
- *							- SSP_FRAME_FORMAT_TI
- *							- SSP_FRAMEFORMAT_MICROWIRE
- * @param	clockMode	: Select Clock polarity and Clock phase, should be :
- *							- SSP_CLOCK_CPHA0_CPOL0
- *							- SSP_CLOCK_CPHA0_CPOL1
- *							- SSP_CLOCK_CPHA1_CPOL0
- *							- SSP_CLOCK_CPHA1_CPOL1
- * @return	 Nothing
- * @note	Note: The clockFormat is only used in SPI mode
- */
-void Chip_SSP_SetFormat(LPC_SSP_T *pSSP, uint32_t bits, uint32_t frameFormat, uint32_t clockMode)
-{
-	pSSP->CR0 = (pSSP->CR0 & ~0xFF) | bits | frameFormat | clockMode;
-}
 
 
 /*==================[cplusplus]==============================================*/
