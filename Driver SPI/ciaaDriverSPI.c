@@ -1,8 +1,4 @@
-/* Copyright 2015, Dominguez Shocron, Marcos (UNER)
- * Copyright 2015, Greggio, Alejandro (UNER)
- * Copyright 2015, Halter, Christian (UNER)
- * Copyright 2015, Pressel Coretto, German (UNER)
- * Copyright 2015, Sosa, Mariela (UNER)
+/* Copyright 2015, Grupo Practicas_Embebidos - Facultad de Ingenieria(UNER)
  *
  * All rights reserved. 
  *
@@ -56,7 +52,7 @@
  * GrAl         Greggio, Alejandro
  * HaCh         Halter,Christian
  * PrGe		    Pressel Coretto, German
- * SoMa			Sosa, Mariela
+ * SoMa			Sosa, Carina
  */
 
 /*
@@ -82,6 +78,8 @@ typedef struct  {
 #define SPI_FIFO_SIZE       (8)
 #define MASK_BITS 0xF
 #define MASK_CPHA_CPOL 0xC0
+#define ciaaPOSIX_IOCTL_SET_CONFIG  10
+#define ciaaPOSIX_IOCTL_SET_ENABLE_INTERRUPT 11
 
 typedef struct {
    uint8_t hwbuf[SPI_FIFO_SIZE];
@@ -105,10 +103,10 @@ static ciaaDevices_deviceType ciaaDriverSPI_device = {
    ciaaDriverSPI_read,    /** <= read function */
    ciaaDriverSPI_write,   /** <= write function */
    ciaaDriverSPI_ioctl,   /** <= ioctl function */
-   NULL,                   /** <= seek function is not provided */
-   NULL,                   /** <= uper layer */
-   &(SPIControl),      /** <= layer */
-   LPC_SPI              /** <= lower layer */
+   NULL,                  /** <= seek function is not provided */
+   NULL,                  /** <= uper layer */
+   &(SPIControl),         /** <= layer */
+   LPC_SPI                /** <= lower layer */
 };
 
 
@@ -147,7 +145,6 @@ static void ciaaDriverSPI_hwInit(void)
 
    Chip_SSP_Int_Disable(LPC_SSP1);
    Chip_SSP_Enable(LPC_SSP1);
-   /*The following line replace Chip_SPP_SetFormat from spp_18xx_43xx.h*/
    Chip_SSP_SetFormat(LPC_SSP1,SSP_BITS_8,SSP_FRAMEFORMAT_SPI,SSP_CLOCK_CPHA0_CPOL0);
    Chip_SSP_SetBitRate(LPC_SSP1, 1000000);
 }
@@ -201,12 +198,12 @@ extern int32_t ciaaDriverSPI_ioctl(ciaaDevices_deviceType const * const device, 
          case ciaaPOSIX_IOCTL_SET_ENABLE_INTERRUPT:
             if((bool)param == false)
             {
-               /* disable THRE irq (TX) */
+               /* disable IRQ */
             	Chip_SSP_Int_Disable((LPC_SSP_T *)device->loLayer);
             }
             else
             {
-               /* enable THRE irq (TX) */
+               /* enable IRQ */
             	Chip_SSP_Int_Enable((LPC_SSP_T *)device->loLayer);
             }
             break;
@@ -281,7 +278,7 @@ void ciaaDriverUart_init(void)
    /* init hardware */
    ciaaDriverSPI_hwInit();
 
-   /* add uart driver to the list of devices */
+   /* add SPI driver to the list of devices */
    for(loopi = 0; loopi < ciaaDriverSPIConst.countOfDevices; loopi++) {
       /* add each device */
       ciaaSerialDevices_addDriver(ciaaDriverSPIConst.devices[loopi]);
@@ -291,29 +288,26 @@ void ciaaDriverUart_init(void)
 /*==================[interrupt handlers]=====================================*/
 ISR(SPI0_IRQHandler)
 {
-   //uint8_t status = Chip_SSP(LPC_USART0);
-
-   //if(status & UART_LSR_RDR)
     if(Chip_SSP_GetStatus(LPC_SSP1,SSP_STAT_RNE))
 	{
       do
       {
-         SPIControl[0].hwbuf[SPIControl[0].rxcnt] = Chip_SSP_ReadFrames_Blocking(LPC_SSP1);
-         SPIControl[0].rxcnt++;
-      }while((Chip_UART_ReadLineStatus(LPC_USART0) & UART_LSR_RDR) &&
-             (uartControl[0].rxcnt < UART_RX_FIFO_SIZE));
+         SPIControl.hwbuf[SPIControl.rxcnt] = Chip_SSP_ReadFrames_Blocking(LPC_SSP1);
+         SPIControl.rxcnt++;
+      }while(Chip_SSP_GetStatus(LPC_SSP1,SSP_STAT_RNE) &&
+             (SPIControl.rxcnt < SPI_FIFO_SIZE));
 
-      ciaaDriverUart_rxIndication(&ciaaDriverUart_device0, uartControl[0].rxcnt);
+      ciaaDriverSPI_rxIndication(&ciaaDriverSPI_device, SPIControl.rxcnt);
    }
-   if((status & UART_LSR_THRE) && (Chip_UART_GetIntsEnabled(LPC_USART0) & UART_IER_THREINT))
+   if(!Chip_SSP_GetStatus(LPC_SSP1,SSP_STAT_TFE) && (Chip_SSP_GetIntStatus(LPC_SSP1) & SSP_TXMIS))
    {
       /* tx confirmation, 1 byte sent */
-      ciaaDriverUart_txConfirmation(&ciaaDriverUart_device0);
+      ciaaDriverSPI_txConfirmation(&ciaaDriverSPI_device);
 
-      if(Chip_UART_ReadLineStatus(LPC_USART0) & UART_LSR_THRE)
-      {  /* There is not more bytes to send, disable THRE irq */
-         Chip_UART_IntDisable(LPC_USART0, UART_IER_THREINT);
-      }
+      if(Chip_SSP_GetStatus(LPC_SSP1,SSP_STAT_TFE))
+           {  /* There is not more bytes to send, disable irq */
+    	  Chip_SSP_Int_Disable(LPC_SSP1);
+           }
    }
 }
 
